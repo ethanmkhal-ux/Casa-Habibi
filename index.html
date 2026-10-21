@@ -87,9 +87,9 @@ a{color:inherit}
 
 /* menu */
 .menu .wrap{padding-block:80px}
-.menu-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:20px}
+.menu-head{display:grid;gap:14px;max-width:62ch}
 .menu-head h2{font-size:clamp(2.2rem,5vw,3.4rem);margin-top:12px}
-.menu-head p{color:var(--muted);max-width:38ch}
+.menu-head .intro{color:var(--muted);font-size:1.05rem}
 .tabs{display:flex;gap:8px;margin-top:32px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .tabs button{font:500 .92rem/1 var(--body);padding:11px 18px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--char);cursor:pointer;white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--olive);border-color:var(--olive);color:var(--on-dark)}
@@ -235,7 +235,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;
         <p class="eyebrow">Catering Menu</p>
         <h2>Build your spread</h2>
       </div>
-      <p>20-guest minimum. Start with a bar or platter, then add mezze, sides, desserts and drinks.</p>
+      <p class="intro">20-guest minimum. Start with a bar or platter, then add mezze, sides, desserts and drinks.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="Catering menu sections">
       <button role="tab" id="t-bars" aria-selected="true" aria-controls="p-bars">Bars</button>
@@ -327,8 +327,8 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;
     </div>
     <form id="quote-form" novalidate>
       <div class="row">
-        <div class="field"><label for="q-name">Name</label><input id="q-name" name="name" autocomplete="name"></div>
-        <div class="field"><label for="q-email">Email</label><input id="q-email" name="email" type="email" autocomplete="email"></div>
+        <div class="field"><label for="q-name">Name</label><input id="q-name" name="name" autocomplete="name" required></div>
+        <div class="field"><label for="q-email">Email</label><input id="q-email" name="email" type="email" autocomplete="email" required></div>
       </div>
       <div class="row">
         <div class="field"><label for="q-date">Event date</label><input id="q-date" name="date" type="date"></div>
@@ -343,7 +343,9 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;
         </div>
       </div>
       <div class="field"><label for="q-notes">Location and anything else</label><textarea id="q-notes" name="notes" rows="3" placeholder="City or venue, dietary needs, favorite dishes"></textarea></div>
-      <button class="btn solid" type="submit">Request a quote</button>
+      <input type="hidden" name="_subject" value="New Casa Habibi catering request">
+      <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+      <button class="btn solid" type="submit" id="q-submit">Request a quote</button>
       <p class="note" id="q-note" role="status">We'll reply within two business days.</p>
     </form>
   </div>
@@ -382,8 +384,33 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;
     if (!/^\S+@\S+\.\S+$/.test(email.value.trim())) { note.className='note'; note.textContent='Enter a valid email so we can reach you.'; email.focus(); return; }
     var g = document.getElementById('q-guests');
     if (g && g.value && Number(g.value) < 20) { note.className='note'; note.textContent='Our minimum is 20 guests. Update the guest count to continue.'; g.focus(); return; }
-    note.className='note ok';
-    note.textContent='Preview only: this form gets connected to your inbox once the site goes live.';
+    var name = document.getElementById('q-name');
+    if (!name.value.trim()) { note.className='note'; note.textContent='Add your name so we know who to reply to.'; name.focus(); return; }
+    var form = e.target, btn = document.getElementById('q-submit');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    note.className='note'; note.textContent='Sending your request…';
+    fetch('https://formspree.io/f/xaeqrajv', {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'Accept': 'application/json' }
+    }).then(function(res){
+      if (res.ok) {
+        form.reset();
+        note.className='note ok';
+        note.textContent='Thanks! Your request is in. We\'ll reply within two business days.';
+        return;
+      }
+      return res.json().then(function(data){
+        var msg = data && data.errors ? data.errors.map(function(x){ return x.message; }).join(' ') : '';
+        note.className='note';
+        note.textContent = msg || 'Your request didn\'t go through. Check your details and try again.';
+      });
+    }).catch(function(){
+      note.className='note';
+      note.textContent='Your request didn\'t go through. Check your connection and try again.';
+    }).then(function(){
+      btn.disabled = false; btn.textContent = 'Request a quote';
+    });
   });
 })();
 </script>
